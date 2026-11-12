@@ -1,0 +1,704 @@
+===============================================================================
+            INR REFER & EARN TELEGRAM BOT - COMPLETE SETUP GUIDE
+===============================================================================
+
+This guide takes you from zero to a live, working bot. Follow the parts in
+order. Each value you need to collect is marked like this:
+
+    >>> SAVE AS: VARIABLE_NAME
+
+Keep a notepad open and paste every value next to its name as you go. At the
+end you will copy all of them into your hosting provider.
+
+Estimated time: 30-45 minutes.
+
+-------------------------------------------------------------------------------
+CONTENTS
+-------------------------------------------------------------------------------
+  Part 0   What you need before you start
+  Part 1   Create the Telegram bot                  (BOT_TOKEN)
+  Part 2   Find your Telegram user ID               (ADMIN_IDS)
+  Part 3   Prepare your channels (optional)
+  Part 4   Create a Cloudflare account              (CF_ACCOUNT_ID)
+  Part 5   Create the D1 database                   (D1_DATABASE_ID)
+  Part 6   Create the Cloudflare API token          (CF_API_TOKEN)
+  Part 7   Set up R2 storage (optional)             (R2_* values)
+  Part 8   Choose the admin panel login             (ADMIN_*, SESSION_SECRET)
+  Part 9   Optional: D1 proxy Worker for high traffic
+  Part 10  Put the code on GitHub
+  Part 11  Deploy on Render (recommended)
+  Part 12  Deploy on other hosts (Railway, Koyeb, VPS, etc.)
+  Part 13  Check that the bot started correctly
+  Part 14  First-time configuration in the admin panel
+  Part 15  Test the bot end to end
+  Part 16  Daily operations (paying withdrawals, broadcasts, backups)
+  Part 17  Troubleshooting common errors
+  Part 18  Updating the bot later
+  Part 19  Security checklist
+  Appendix Full list of environment variables
+
+
+===============================================================================
+PART 0 - WHAT YOU NEED BEFORE YOU START
+===============================================================================
+
+  1. A Telegram account (phone app or desktop).
+  2. A GitHub account                 -> https://github.com
+  3. A Cloudflare account (free)      -> https://dash.cloudflare.com/sign-up
+  4. A Render account (free)          -> https://render.com
+     (or another Node.js host, see Part 12)
+  5. This project's code (the "rfinfo" repository).
+
+You do NOT need to install anything on your computer to deploy. Installing
+Node.js 20+ is only needed if you want to run the bot locally for testing.
+
+
+===============================================================================
+PART 1 - CREATE THE TELEGRAM BOT                           -> BOT_TOKEN
+===============================================================================
+
+  1. Open Telegram and search for  @BotFather  (it has a blue verified tick).
+  2. Send:   /newbot
+  3. Enter a display name, for example:   INR Refer Bot
+  4. Enter a username. It must end in "bot", for example:   inrrefer_bot
+  5. BotFather replies with a token that looks like this:
+
+         7123456789:AAHk3x9Yz-AbCdEfGhIjKlMnOpQrStUvWxY
+
+     >>> SAVE AS: BOT_TOKEN
+
+  Keep this token secret. Anyone who has it controls your bot.
+  If it ever leaks, send /revoke to @BotFather to get a new one.
+
+  Optional, but makes the bot look professional (all done in @BotFather):
+    /setuserpic       - upload a profile picture
+    /setdescription   - text shown before a user presses START
+    /setabouttext     - short text on the bot's profile
+
+
+===============================================================================
+PART 2 - FIND YOUR TELEGRAM USER ID                        -> ADMIN_IDS
+===============================================================================
+
+  1. In Telegram, search for  @userinfobot  and press START.
+  2. It replies with your numeric ID, for example:   Id: 1234567890
+
+     >>> SAVE AS: ADMIN_IDS
+
+  To have several admins, separate the IDs with commas and no spaces:
+
+         1234567890,9876543210
+
+  Admins receive a Telegram alert for every withdrawal request, with
+  "Mark Paid" and "Reject" buttons, and can use the /admin command.
+
+  IMPORTANT: every admin must press START in YOUR bot at least once,
+  otherwise Telegram will not let the bot message them.
+
+
+===============================================================================
+PART 3 - PREPARE YOUR CHANNELS (OPTIONAL)
+===============================================================================
+
+Skip this part if you do not want users to join any channel first.
+
+For EACH channel or group users must join:
+
+  1. Open the channel -> channel name at the top -> Administrators
+     -> Add Admin -> search for your bot's username -> add it.
+     No special permissions are needed. It only has to be an admin.
+
+  2. Note the channel identifier:
+       - Public channel:   its @username, for example  @mychannel
+       - Private channel:  its numeric ID, which starts with -100
+         To find it, forward any post from the channel to
+         @userinfobot or @RawDataBot. It shows an ID such as
+         -1001234567890.
+         You will also need an invite link
+         (Channel -> Invite Links -> copy, e.g. https://t.me/+AbCdEf12345).
+
+  You will enter these in the admin panel later (Part 14), not as
+  environment variables.
+
+  OPTIONAL "payment proof" channel: create a channel where the bot posts
+  every successful payout. Add the bot as an admin with permission to
+  post messages, and note its @username or -100 ID.
+
+
+===============================================================================
+PART 4 - CREATE A CLOUDFLARE ACCOUNT                       -> CF_ACCOUNT_ID
+===============================================================================
+
+  1. Sign up at  https://dash.cloudflare.com/sign-up  and verify your email.
+  2. Log in. You do NOT need to add a website or domain.
+  3. Find your Account ID. Either:
+       a) Click "Workers & Pages" in the left menu. The Account ID is shown
+          in the right-hand sidebar.
+       or
+       b) Look at the browser address bar after logging in:
+            https://dash.cloudflare.com/<THIS-LONG-CODE>/home
+          The 32-character code is your Account ID.
+
+     Example:   3f9a1c2b7d8e4f60a1b2c3d4e5f60718
+
+     >>> SAVE AS: CF_ACCOUNT_ID
+     (R2 uses the same value, so you normally do not need R2_ACCOUNT_ID.)
+
+
+===============================================================================
+PART 5 - CREATE THE D1 DATABASE                            -> D1_DATABASE_ID
+===============================================================================
+
+  1. In the Cloudflare dashboard left menu, open:
+         Storage & Databases  ->  D1 SQL Database
+  2. Click "Create Database".
+  3. Name it:   refer-bot
+     Location: leave as "Automatic" (or choose Asia-Pacific).
+  4. Click "Create".
+  5. On the database page, copy the "Database ID". It looks like:
+
+         8c2f6a14-3b7e-4d21-9f0a-5e6d7c8b9a01
+
+     >>> SAVE AS: D1_DATABASE_ID
+
+  You do NOT need to create any tables. The bot creates them automatically
+  the first time it starts.
+
+
+===============================================================================
+PART 6 - CREATE THE CLOUDFLARE API TOKEN                   -> CF_API_TOKEN
+===============================================================================
+
+This token lets the bot read and write your D1 database.
+
+  1. Click the profile icon (top right)  ->  "My Profile".
+  2. Left menu  ->  "API Tokens".
+  3. Click "Create Token".
+  4. Scroll to the bottom  ->  "Create Custom Token"  ->  "Get started".
+  5. Fill in:
+       Token name:  refer-bot-d1
+       Permissions: [ Account ]  [ D1 ]  [ Edit ]
+       Account Resources: [ Include ]  [ <your account> ]
+     Leave everything else as it is.
+  6. Click "Continue to summary"  ->  "Create Token".
+  7. Copy the token. It is shown ONLY ONCE.
+
+     >>> SAVE AS: CF_API_TOKEN
+
+  If you lose it, delete it and create a new one.
+
+
+===============================================================================
+PART 7 - SET UP R2 STORAGE (OPTIONAL)                     -> R2_* values
+===============================================================================
+
+R2 is used for:
+  - automatic daily database backups (strongly recommended)
+  - images in broadcasts
+  - uploading a welcome banner from the admin panel
+
+The bot works without R2. If you skip this part, leave all R2_ variables
+empty.
+
+R2 has a free tier (10 GB of storage). Cloudflare may ask you to add a
+payment method before you can enable R2. You will not be charged within
+the free limits.
+
+  7.1  Create the bucket
+       1. Left menu  ->  "Storage & Databases"  ->  "R2 Object Storage".
+       2. If asked, click "Enable R2" or "Purchase R2" and accept the free
+          plan.
+       3. Click "Create bucket". Name:  refer-bot   ->  "Create bucket".
+
+            >>> SAVE AS: R2_BUCKET        (value: refer-bot)
+
+  7.2  Create the R2 access keys
+       1. Go back to the R2 Object Storage overview page.
+       2. Click "Manage API tokens" (or "API" -> "Manage API Tokens").
+       3. Click "Create API token" (choose an "Account API token" if asked).
+       4. Fill in:
+            Token name:   refer-bot-r2
+            Permissions:  Object Read & Write
+            Specify bucket(s): Apply to specific buckets only -> refer-bot
+       5. Click "Create API Token".
+       6. Copy these two values. The secret is shown ONLY ONCE.
+            Access Key ID       >>> SAVE AS: R2_ACCESS_KEY_ID
+            Secret Access Key   >>> SAVE AS: R2_SECRET_ACCESS_KEY
+          (Ignore the "Token value" and the endpoint URL. They are not
+          needed.)
+
+  7.3  Public URL (only needed to UPLOAD a welcome banner from the panel)
+       1. Open the refer-bot bucket  ->  "Settings".
+       2. Under "Public Development URL" (r2.dev), click "Enable"
+          and confirm.
+       3. Copy the URL shown, for example:
+              https://pub-1a2b3c4d5e6f.r2.dev
+
+            >>> SAVE AS: R2_PUBLIC_URL
+
+       Backups are NEVER publicly accessible, even with this enabled. The
+       admin panel downloads them using private, signed, 10-minute links.
+
+
+===============================================================================
+PART 8 - CHOOSE THE ADMIN PANEL LOGIN
+===============================================================================
+
+  ADMIN_USERNAME  - any username, for example:   admin
+  ADMIN_PASSWORD  - a STRONG password (12+ characters, mixed letters,
+                    numbers and symbols). Do not reuse another password.
+  SESSION_SECRET  - a long random string (40+ characters). It signs your
+                    login cookie. You never type it anywhere.
+                    Generate one at https://www.random.org/strings/
+                    or just mash the keyboard for 50 characters.
+                    (On Render, render.yaml generates it automatically.)
+
+     >>> SAVE AS: ADMIN_USERNAME
+     >>> SAVE AS: ADMIN_PASSWORD
+     >>> SAVE AS: SESSION_SECRET
+
+
+===============================================================================
+PART 9 - OPTIONAL: D1 PROXY WORKER FOR HIGH TRAFFIC
+===============================================================================
+
+SKIP THIS PART when starting out. Come back if your bot grows big.
+
+Why: the Cloudflare REST API allows about 1,200 requests per 5 minutes. A
+bot with many active users at the same time can hit that limit. A small
+Cloudflare Worker talks to D1 directly and avoids the limit.
+
+You need Node.js installed on your computer for this part.
+
+  1. Open the project's  cloudflare-worker/wrangler.toml  file and replace
+         PUT-YOUR-D1-DATABASE-ID-HERE
+     with your D1_DATABASE_ID.
+  2. In a terminal, inside the cloudflare-worker folder, run:
+         npx wrangler login
+         npx wrangler deploy
+     It prints a URL like:
+         https://refer-bot-d1-proxy.yourname.workers.dev
+     >>> SAVE AS: D1_PROXY_URL
+  3. Choose a long random string as the proxy password and save it:
+         npx wrangler secret put PROXY_SECRET
+     (paste your random string when asked)
+     >>> SAVE AS: D1_PROXY_SECRET   (the same random string)
+
+  When D1_PROXY_URL is set, the bot uses the Worker and ignores
+  CF_API_TOKEN and D1_DATABASE_ID. You can leave those set anyway.
+
+
+===============================================================================
+PART 10 - PUT THE CODE ON GITHUB
+===============================================================================
+
+Your code is already in the private repository "rfinfo" on GitHub. If you
+need to do it again for a new account:
+
+  1. Create a new PRIVATE repository on github.com (no README).
+  2. In the project folder run:
+         git init
+         git add -A
+         git commit -m "Initial commit"
+         git branch -M main
+         git remote add origin https://github.com/<you>/<repo>.git
+         git push -u origin main
+
+  NEVER commit your .env file. It is already listed in .gitignore.
+
+
+===============================================================================
+PART 11 - DEPLOY ON RENDER (RECOMMENDED)
+===============================================================================
+
+  11.1  Connect GitHub
+        1. Log in at https://dashboard.render.com
+        2. Account settings -> connect your GitHub account and give Render
+           access to the "rfinfo" repository.
+
+  11.2  Create the service. Use EITHER option A OR option B.
+
+        OPTION A - Blueprint (easiest, uses render.yaml):
+          1. Click "New +"  ->  "Blueprint".
+          2. Select the rfinfo repository  ->  "Connect".
+          3. Render reads render.yaml and asks for the variables marked as
+             secret. Fill them in (see 11.3).
+          4. The blueprint uses the "starter" (paid) plan. To use the free
+             plan, change "plan: starter" to "plan: free" in render.yaml
+             and push to GitHub first.
+          5. Click "Apply".
+
+        OPTION B - Manual web service:
+          1. Click "New +"  ->  "Web Service"  ->  pick the rfinfo repo.
+          2. Settings:
+               Name:            inr-refer-bot (any name)
+               Region:          Singapore (closest to India)
+               Branch:          main
+               Runtime:         Node
+               Build Command:   npm install
+               Start Command:   npm start
+               Instance Type:   Free or Starter
+          3. Open "Advanced" -> "Add Environment Variable" and add the
+             variables from 11.3.
+          4. Health Check Path:   /health
+          5. Click "Create Web Service".
+
+  11.3  Environment variables to enter on Render
+        (Service -> "Environment" tab -> "Add Environment Variable")
+
+        KEY                    VALUE / WHERE IT COMES FROM
+        ---------------------  -------------------------------------------
+        BOT_TOKEN              Part 1  (from @BotFather)
+        ADMIN_IDS              Part 2  (from @userinfobot)
+        ADMIN_USERNAME         Part 8
+        ADMIN_PASSWORD         Part 8
+        SESSION_SECRET         Part 8  (auto-generated with Blueprint)
+        CF_ACCOUNT_ID          Part 4
+        CF_API_TOKEN           Part 6
+        D1_DATABASE_ID         Part 5
+        R2_ACCESS_KEY_ID       Part 7.2  (optional)
+        R2_SECRET_ACCESS_KEY   Part 7.2  (optional)
+        R2_BUCKET              Part 7.1  (optional)
+        R2_PUBLIC_URL          Part 7.3  (optional)
+        D1_PROXY_URL           Part 9    (optional, leave empty normally)
+        D1_PROXY_SECRET        Part 9    (optional, leave empty normally)
+        NODE_VERSION           20
+
+        DO NOT set PUBLIC_URL on Render. Render provides the URL
+        automatically through RENDER_EXTERNAL_URL.
+        DO NOT set PORT on Render. Render sets it.
+
+        Watch out for extra spaces or line breaks when pasting values.
+        They are the most common cause of "invalid token" errors.
+
+  11.4  Save and deploy
+        Click "Save Changes". Render builds and starts the bot (2-4 minutes).
+        Your app URL appears at the top of the service page, for example:
+            https://inr-refer-bot.onrender.com
+
+  11.5  Free plan note
+        On Render's free plan the service SLEEPS after 15 minutes without
+        traffic. The first message after that takes 30-60 seconds to get a
+        reply. To avoid this, either:
+          - use the Starter plan (always on), or
+          - create a free monitor at https://uptimerobot.com that opens
+              https://<your-app>.onrender.com/health
+            every 5 minutes.
+
+
+===============================================================================
+PART 12 - DEPLOY ON OTHER HOSTS
+===============================================================================
+
+YES, you can host this bot anywhere that runs Node.js 20+ as a normal,
+always-running web server with a public HTTPS URL. The same environment
+variables apply on every host. Only PUBLIC_URL differs:
+
+  - Render, Railway, Koyeb : PUBLIC_URL is detected automatically.
+  - Every other host       : set PUBLIC_URL to your app's https:// address
+                             (no trailing slash).
+
+  NOT SUPPORTED: Vercel, Netlify Functions, Cloudflare Workers/Pages and
+  other "serverless" platforms. The bot must stay running to send
+  broadcasts and make daily backups.
+
+  12.1  Railway  (https://railway.app)
+        1. New Project -> Deploy from GitHub repo -> select rfinfo.
+        2. Variables tab -> add all variables from Part 11.3
+           (except NODE_VERSION).
+        3. Settings -> Networking -> "Generate Domain".
+        4. Redeploy. The URL is detected automatically.
+
+  12.2  Koyeb  (https://www.koyeb.com)
+        1. Create Web Service -> GitHub -> select rfinfo.
+        2. Builder: Buildpack. Run command: npm start.
+           Exposed port: 8000, and add the variable PORT=8000.
+        3. Add all variables from Part 11.3.
+        4. Deploy. The URL is detected automatically.
+
+  12.3  Fly.io / Northflank / Heroku / others
+        Deploy as a Node.js app with start command "npm start", add all
+        variables, then add:
+            PUBLIC_URL = https://your-app-address
+        and restart.
+
+  12.4  Your own VPS (Ubuntu example: DigitalOcean, Hetzner, AWS EC2...)
+        You need a domain or subdomain pointing to the server's IP address,
+        for example bot.yourdomain.com.
+
+          # 1. Install Node.js 20 and pm2
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs git
+          sudo npm install -g pm2
+
+          # 2. Get the code
+          git clone https://github.com/<you>/rfinfo.git
+          cd rfinfo
+          npm install --omit=dev
+          cp .env.example .env
+          nano .env        # fill in all values, and set:
+                           # PUBLIC_URL=https://bot.yourdomain.com
+                           # PORT=3000
+
+          # 3. Test, then run forever
+          npm run check
+          pm2 start src/index.js --name refer-bot
+          pm2 save
+          pm2 startup      # run the command it prints
+
+          # 4. HTTPS with Caddy (automatic SSL certificate)
+          sudo apt-get install -y caddy
+          echo 'bot.yourdomain.com {
+            reverse_proxy localhost:3000
+          }' | sudo tee /etc/caddy/Caddyfile
+          sudo systemctl restart caddy
+
+
+===============================================================================
+PART 13 - CHECK THAT THE BOT STARTED CORRECTLY
+===============================================================================
+
+Open your host's logs (Render: service -> "Logs"). A successful start looks
+like this:
+
+    ⏳ Running database migrations…
+    🤖 Bot: @YourBotUsername
+    🌐 HTTP server on :10000
+    🔗 Webhook set → https://your-app.onrender.com/tg/…
+    🖥  Admin panel → https://your-app.onrender.com/admin
+    ✅ Ready. R2 storage: enabled. D1 via REST API.
+
+Also open these addresses in your browser:
+    https://your-app.onrender.com/          -> "@YourBot is running"
+    https://your-app.onrender.com/health    -> {"ok":true,...}
+
+If you see an error instead, go to Part 17.
+
+
+===============================================================================
+PART 14 - FIRST-TIME CONFIGURATION IN THE ADMIN PANEL
+===============================================================================
+
+  1. Open   https://your-app-address/admin
+  2. Log in with ADMIN_USERNAME and ADMIN_PASSWORD.
+  3. Click "Settings" and review every section:
+
+     REWARDS
+       Per referral (₹)          - what a referrer earns per verified friend
+       Welcome bonus (₹)         - given to each new verified user (0 = off)
+       Daily bonus min / max (₹) - random amount between these
+       Milestone bonuses         - format: referrals=₹bonus, comma separated
+                                   example: 10=20, 25=60, 50=150
+
+     WITHDRAWALS
+       Minimum / Maximum (₹)     - withdrawal limits (maximum 0 = no limit)
+       Min. referrals            - verified referrals needed to withdraw
+       Fee %                     - deducted from each payout (0 = free)
+       Payment proof channel     - @channel or -100 ID (optional, Part 3)
+
+     SECURITY & ANTI-FRAUD
+       Require device verification - keep ON (the one-device rule)
+       Auto-ban duplicates         - ON = ban the second account on a device
+                                     OFF = allow it, but pay no referral
+       Max accounts per IP         - keep 0 (off) or 5+. Indian mobile
+                                     networks share IPs between many users.
+       Maintenance mode            - temporarily blocks everyone but admins
+
+     FORCE-JOIN CHANNELS  (one per line:  id | invite link | title)
+       @mychannel | https://t.me/mychannel | Official Channel
+       -1001234567890 | https://t.me/+AbCdEf12345 | VIP Group
+
+     MESSAGES & BRANDING
+       Welcome text      - supports <b>bold</b>, <i>italic</i>,
+                           <a href="...">links</a>, <code>code</code>
+       Welcome banner    - paste an image URL, or upload one
+                           (upload needs R2 + R2_PUBLIC_URL)
+       Support username  - your support account, e.g. @mysupport
+
+  4. Click "Save all settings". Changes apply within 30 seconds.
+
+
+===============================================================================
+PART 15 - TEST THE BOT END TO END
+===============================================================================
+
+  1. Open your bot in Telegram and press START.
+  2. Join the channels if asked, then tap "I've Joined".
+  3. Tap "Verify My Device". A verification screen opens and closes by
+     itself. You then receive the welcome message and main menu.
+  4. Tap through every menu button.
+  5. Referral test: ask a friend (on a DIFFERENT phone) to open your
+     referral link (Refer & Earn screen) and verify. You should get a
+     "Referral Confirmed" message and the bonus.
+  6. Withdrawal test: in the admin panel, open your own user page, add
+     balance with "Adjust balance", set a UPI ID in the bot (Wallet), then
+     request a withdrawal. You should get an admin alert in Telegram and see
+     the request under Withdrawals.
+  7. Admin panel -> Backups -> "Create backup now" (if R2 is configured).
+
+  Note: testing a second account on the SAME phone is blocked by design.
+
+
+===============================================================================
+PART 16 - DAILY OPERATIONS
+===============================================================================
+
+  PAYING WITHDRAWALS
+    1. Admin panel -> Withdrawals -> Pending tab.
+       (Or use the alert the bot sends you in Telegram.)
+    2. Send the "Pay (net)" amount to the shown UPI ID using any UPI app.
+    3. Paste the UTR / transaction reference into the box and click
+       "Paid". The user is notified automatically, and the payout is posted
+       to the payment proof channel if you set one.
+    4. To refuse a request, enter a reason and click "Reject". Keep
+       "Refund" ticked to return the money to the user's balance.
+    Tip: "Export CSV" downloads all pending requests for bulk payment.
+
+  BROADCASTS
+    Admin panel -> Broadcast. Write the message, optionally add an image
+    and a button, and click "Send test to admins" first. Then click
+    "Send to everyone". It sends about 25 messages per second. Refresh the
+    page to see progress.
+
+  GIFT CODES
+    Admin panel -> Gift Codes -> create a code, then share it in your
+    channel. Users redeem it with the "Redeem Code" button.
+
+  FRAUD
+    Admin panel -> Anti-Fraud lists accounts caught on a used device.
+    If a real user was blocked by mistake (two identical phone models can
+    look the same), open their user page and click Unban + Reset device.
+
+  BACKUPS
+    With R2 configured, a full backup is saved automatically every 24 hours.
+    Download backups from Admin panel -> Backups.
+
+
+===============================================================================
+PART 17 - TROUBLESHOOTING COMMON ERRORS
+===============================================================================
+
+  "Missing required env variable: BOT_TOKEN" (or ADMIN_PASSWORD)
+      -> That variable is not set on your host. Add it and redeploy.
+
+  "Database not configured. Set CF_ACCOUNT_ID + CF_API_TOKEN + ..."
+      -> One of CF_ACCOUNT_ID, CF_API_TOKEN or D1_DATABASE_ID is missing
+         or empty. Check the spelling of the variable NAMES too.
+
+  "D1 error: Authentication error" / "Unauthorized" / HTTP 401 or 403
+      -> CF_API_TOKEN is wrong, expired, or lacks the "D1 : Edit"
+         permission. Create a new token (Part 6). Also check that
+         CF_ACCOUNT_ID belongs to the same account.
+
+  "D1 error: ... database not found" / HTTP 404
+      -> D1_DATABASE_ID is wrong. Copy it again from the D1 page (Part 5).
+
+  "401: Unauthorized" or "404: Not Found" from Telegram at startup
+      -> BOT_TOKEN is wrong or was revoked. Copy it again from @BotFather.
+
+  Bot does not reply at all
+      -> Check the logs for "Webhook set". On the free plan, wait up to a
+         minute for the service to wake up.
+      -> Make sure no other copy of the bot (for example on your PC) is
+         running with the same token. Only one can receive updates.
+
+  "Verification unavailable" button / verify page does not open
+      -> PUBLIC_URL is not set or not HTTPS. On hosts other than Render,
+         Railway and Koyeb, set PUBLIC_URL (Part 12).
+
+  Users stay stuck on "Join Required"
+      -> The bot is not an admin in that channel, or the channel ID is
+         wrong. Fix it in Part 3 and in Settings.
+
+  Admin alerts not received in Telegram
+      -> Check ADMIN_IDS, and make sure each admin pressed START in the bot.
+
+  Backups / image upload say "R2 is not configured"
+      -> Set R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET.
+         Banner upload also needs R2_PUBLIC_URL.
+
+  Too many D1 requests / HTTP 429 errors in the logs
+      -> Set up the D1 proxy Worker (Part 9).
+
+  Locked out of the admin panel ("Too many failed attempts")
+      -> Wait 15 minutes, or restart the service.
+
+
+===============================================================================
+PART 18 - UPDATING THE BOT LATER
+===============================================================================
+
+  1. Change the code and push it to the main branch on GitHub.
+  2. Render (with auto-deploy) rebuilds and restarts by itself. On other
+     hosts, redeploy, or on a VPS run:
+         git pull && npm install --omit=dev && pm2 restart refer-bot
+  3. Your data is safe. It lives in D1, not on the server.
+
+
+===============================================================================
+PART 19 - SECURITY CHECKLIST
+===============================================================================
+
+  [ ] Repository is PRIVATE on GitHub.
+  [ ] .env is never committed (it is in .gitignore).
+  [ ] ADMIN_PASSWORD is strong and unique.
+  [ ] SESSION_SECRET is long and random.
+  [ ] CF_API_TOKEN has only the "D1 : Edit" permission.
+  [ ] R2 token is limited to the refer-bot bucket.
+  [ ] Backups are enabled (R2 configured).
+  [ ] If any key or token leaks: revoke it, create a new one, update it on
+      your host and redeploy.
+
+
+===============================================================================
+APPENDIX - ALL ENVIRONMENT VARIABLES
+===============================================================================
+
+  VARIABLE              REQUIRED?        WHERE TO GET IT
+  --------------------  ---------------  -------------------------------------
+  BOT_TOKEN             Yes              @BotFather (Part 1)
+  ADMIN_IDS             Recommended      @userinfobot (Part 2)
+  ADMIN_USERNAME        No (=admin)      You choose (Part 8)
+  ADMIN_PASSWORD        Yes              You choose (Part 8)
+  SESSION_SECRET        Recommended      Random string (Part 8)
+  PUBLIC_URL            Host-dependent   Your app's https URL (Part 12).
+                                         Leave empty on Render/Railway/Koyeb.
+  PORT                  No               Set by the host (default 3000)
+  CF_ACCOUNT_ID         Yes*             Cloudflare dashboard (Part 4)
+  CF_API_TOKEN          Yes*             My Profile -> API Tokens (Part 6)
+  D1_DATABASE_ID        Yes*             D1 database page (Part 5)
+  D1_PROXY_URL          Optional*        wrangler deploy output (Part 9)
+  D1_PROXY_SECRET       Optional*        You choose (Part 9)
+  R2_ACCESS_KEY_ID      Optional         R2 -> Manage API tokens (Part 7.2)
+  R2_SECRET_ACCESS_KEY  Optional         R2 -> Manage API tokens (Part 7.2)
+  R2_BUCKET             Optional         Your bucket name (Part 7.1)
+  R2_PUBLIC_URL         Optional         Bucket -> Settings -> r2.dev (7.3)
+  R2_ACCOUNT_ID         Optional         Only if R2 is in a different
+                                         Cloudflare account (else = Part 4)
+
+  * Database: provide CF_ACCOUNT_ID + CF_API_TOKEN + D1_DATABASE_ID,
+    OR D1_PROXY_URL + D1_PROXY_SECRET.
+
+  Example of a complete .env file (for local testing or a VPS):
+
+    BOT_TOKEN=7123456789:AAHk3x9Yz-AbCdEfGhIjKlMnOpQrStUvWxY
+    ADMIN_IDS=1234567890
+    ADMIN_USERNAME=admin
+    ADMIN_PASSWORD=Str0ng!Passw0rd#2026
+    SESSION_SECRET=k3J9xQ2mPz7Lw4Nv8Rt1Yb6Hc5Fd0Gs3Ae9Ku2Mi7
+    PUBLIC_URL=
+    CF_ACCOUNT_ID=3f9a1c2b7d8e4f60a1b2c3d4e5f60718
+    CF_API_TOKEN=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd
+    D1_DATABASE_ID=8c2f6a14-3b7e-4d21-9f0a-5e6d7c8b9a01
+    D1_PROXY_URL=
+    D1_PROXY_SECRET=
+    R2_ACCESS_KEY_ID=1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
+    R2_SECRET_ACCESS_KEY=0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978
+    R2_BUCKET=refer-bot
+    R2_PUBLIC_URL=https://pub-1a2b3c4d5e6f.r2.dev
+
+  (All values above are FAKE examples. Use your own.)
+
+===============================================================================
+                                END OF GUIDE
+===============================================================================

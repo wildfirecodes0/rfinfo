@@ -1,125 +1,156 @@
 # 💸 INR Refer & Earn Telegram Bot
 
-Node.js mein bana ek advanced refer-and-earn bot. Isme yeh sab hai: INR (₹) wallet, UPI se withdrawal, **ek device par ek hi account** wala anti-fraud system, aur ek pura web admin panel. Hosting **Render** par hoti hai, database **Cloudflare D1** hai aur storage **Cloudflare R2** hai.
+An advanced refer-and-earn Telegram bot built with Node.js. Users earn Indian Rupees (₹) for inviting friends, can claim a daily bonus and redeem gift codes, and withdraw to their UPI ID. A **one-device-one-account** system blocks fake referrals, and a full web admin panel lets you run everything from your browser.
+
+**Stack:** Node.js 20+ · Telegraf · Express · Cloudflare D1 (database) · Cloudflare R2 (file storage) · Render (or any Node.js host)
+
+![Main menu](screenshots/main-menu-4k.png)
+
+> 📄 **New to hosting?** Read **[SETUP_GUIDE.txt](SETUP_GUIDE.txt)**. It explains every step, from creating the bot to going live, and tells you where to get each value.
 
 ---
 
 ## ✨ Features
 
-### 🤖 Bot (user side)
-- 👥 **Refer & Earn**: har user ka apna referral link aur Share button. Bonus tabhi milta hai jab naya user channel join kare **aur** apna device verify kare.
-- 🛡 **One Device = One Account**: Telegram Mini App device ka fingerprint leta hai (canvas, WebGL, audio, screen, hardware, timezone ka SHA-256 hash) aur saath mein ek persistent device token bhi. Agar wahi device kisi doosre account par mile, to referral reject ho jata hai aur (setting ke hisaab se) naya account auto-ban ho jata hai.
-- 🌐 IP limit optional hai (max accounts per IP).
-- 📢 **Force-join channels**: kitne bhi channels/groups, "I've Joined" button ke saath.
-- 💰 **Wallet**: balance, total earned, withdrawn, pending referrals aur transaction history.
-- 💸 **UPI withdrawal**: min/max limit, kam se kam kitne referrals chahiye, fee %, quick-amount buttons aur confirm screen. Ek time par ek hi pending request ho sakti hai.
-- 🎁 **Daily bonus**: random amount (min–max), 24 ghante ka cooldown.
-- 🏅 **Milestone bonus**: jaise 10 refs → ₹20, 50 refs → ₹150.
-- 🎟 **Gift / promo codes**: amount, max uses aur expiry ke saath.
-- 🏆 **Leaderboard** (aapke rank ke saath) aur 📊 bot statistics.
-- 🔔 Notifications: koi aapke link se join kare, referral confirm ho, payment ho jaye ya reject ho.
-- 🛠 Maintenance mode, ban system, aur bot block karne wale users ki tracking.
+### For users (inside Telegram)
+| Feature | Details |
+|---|---|
+| 👥 Refer & Earn | A personal referral link and a Share button. The referrer is paid only after the new user has joined the required channels **and** verified their device. |
+| 🛡 One device = one account | A Telegram Mini App builds a device fingerprint (a SHA-256 hash of canvas, WebGL, audio, screen, hardware and timezone signals) plus a persistent device token. A device that is already linked to another account is rejected. |
+| 📢 Force-join channels | Supports any number of channels or groups, with an "I've Joined" check button. |
+| 💰 Wallet | Shows balance, total earned, total withdrawn, pending referrals and transaction history. |
+| 💸 UPI withdrawals | Minimum and maximum amounts, a minimum number of referrals, a percentage fee, quick-amount buttons and a confirmation screen. Each user can have only one pending request at a time. |
+| 🎁 Daily bonus | A random amount between a minimum and a maximum, with a 24-hour cooldown. |
+| 🏅 Milestone bonuses | Extra rewards at referral counts you choose, for example 10 → ₹20 and 50 → ₹150. |
+| 🎟 Gift codes | Promo codes with an amount, a usage limit and an optional expiry. |
+| 🏆 Leaderboard & 📊 Stats | The top referrers, the user's own rank, and public bot statistics. |
+| 🔔 Notifications | Users are notified when someone joins with their link, when a referral is confirmed, and when a payout is paid or rejected. |
 
-### 🖥 Admin panel (`/admin`)
-- 📊 Dashboard: users, verified, active 24h, referrals, pending/paid payouts, liability, fraud count, 14 din ka chart.
-- 👥 Users: search (ID / @username / naam / UPI), filters, sorting, aur detail page. Detail page par balance add/deduct, ban/unban, device reset, UPI edit, message bhejna, referrals, transactions aur withdrawals.
-- 💸 Withdrawals: Pending/Paid/Rejected tabs, UTR ke saath "Mark paid", reject + refund, aur **CSV export** (bulk payment ke liye).
-- 📣 Broadcast: text + image + button, admins ko test send, live progress, aur stop button. Blocked users apne aap skip ho jate hain, aur Telegram rate-limit (429) handle hota hai.
-- 🎟 Gift codes, 🕵️ anti-fraud logs, 📜 saare transactions.
-- ⚙️ Settings: saare rewards, limits, channels, security, welcome text aur banner (banner R2 par upload hota hai).
-- ☁️ Backups: poore database ka gzip JSON R2 mein jata hai (har 24 ghante automatic + manual), signed download link ke saath.
-- 🔐 Signed HttpOnly cookie session, brute-force lock (5 galat try → 15 minute block), SameSite + origin check.
-
-Bot ke andar bhi admin tools hain: `/admin` stats dikhata hai, aur har naye withdrawal ka alert **✅ Mark Paid / ❌ Reject** buttons ke saath aata hai.
+### For admins
+- **Web admin panel at `/admin`**
+  - **Dashboard:** live stats and a 14-day sign-up chart.
+  - **Users:** search, filters and sorting, plus a detail page where you can add or deduct balance, ban or unban, reset the device link, edit the UPI ID and send a message.
+  - **Withdrawals:** pending, paid and rejected tabs. Mark a request as paid (with a UTR number) or reject it with an automatic refund. Export to CSV for bulk payouts.
+  - **Broadcast:** send text, an image and a button to all users, with live progress, a test send to admins and a stop button.
+  - **More pages:** gift codes, anti-fraud logs, all transactions and every setting.
+  - **Backups:** the full database is backed up to Cloudflare R2 automatically every 24 hours, or on demand.
+- **In-bot admin tools**
+  - `/admin` shows quick stats.
+  - Each new withdrawal is sent to the admins with **✅ Mark Paid / ❌ Reject** buttons.
+- **Security**
+  - Signed HttpOnly session cookies, protected against cross-site requests (SameSite + origin check).
+  - Admin login locks for 15 minutes after 5 failed attempts.
+  - Telegram webhooks are checked with a secret token, and Mini App data is verified with HMAC.
+- **Money handling**
+  - Amounts are stored as integer paise, so there are no rounding errors.
+  - Every balance change is an atomic, conditional database update. This prevents double withdrawals, double claims and negative balances.
 
 ---
 
-## 🚀 Setup (step by step)
+## 🚀 Quick start
 
-### 1. Telegram bot
-1. [@BotFather](https://t.me/BotFather) par `/newbot` chalao aur **BOT_TOKEN** copy kar lo.
-2. Apni numeric ID [@userinfobot](https://t.me/userinfobot) se lo. Yahi **ADMIN_IDS** hai.
-3. Force-join channels mein bot ko **admin** banana zaroori hai.
-
-### 2. Cloudflare D1 (database)
-1. Cloudflare dashboard → **Storage & Databases → D1** → *Create database* (naam: `refer-bot`).
-2. **Database ID** copy karo. Yahi `D1_DATABASE_ID` hai.
-3. **Account ID** dashboard ke right side par milega. Yahi `CF_ACCOUNT_ID` hai.
-4. **My Profile → API Tokens → Create Token → Custom**. Permission do: `Account → D1 → Edit`. Bana kar copy karo. Yahi `CF_API_TOKEN` hai.
-
-Tables apne aap ban jaati hain, bot pehli baar start hote hi.
-
-> ⚡ **High traffic ke liye (recommended):** Cloudflare REST API ki limit lagbhag 1200 requests / 5 minute hai. Agar bahut saare users aate hain to `cloudflare-worker/` wala proxy deploy karo:
-> ```bash
-> cd cloudflare-worker
-> # wrangler.toml mein database_id daalo
-> npx wrangler deploy
-> npx wrangler secret put PROXY_SECRET
-> ```
-> Phir Render par `D1_PROXY_URL=https://refer-bot-d1-proxy.<you>.workers.dev` aur `D1_PROXY_SECRET` set karo.
-
-### 3. Cloudflare R2 (storage)
-1. **R2 → Create bucket** (naam: `refer-bot`). Yahi `R2_BUCKET` hai.
-2. **R2 → Manage API Tokens → Create** (Object Read & Write). Isse `R2_ACCESS_KEY_ID` aur `R2_SECRET_ACCESS_KEY` milenge.
-3. *(Optional)* Bucket → Settings → **Public access (r2.dev)** on karo aur URL ko `R2_PUBLIC_URL` mein daalo. Welcome banner upload ke liye yeh chahiye.
-
-### 4. Render par deploy
-1. Is folder ko GitHub repo mein push karo.
-2. Render → **New → Blueprint** → repo select karo. `render.yaml` apne aap detect ho jayega.
-   *(Ya **New → Web Service** banao: Build `npm install`, Start `npm start`.)*
-3. Environment variables bharo (`.env.example` dekho). `PUBLIC_URL` **khaali chhodo**, kyunki Render khud `RENDER_EXTERNAL_URL` deta hai.
-4. Deploy karo. Logs mein yeh dikhna chahiye:
-   ```
-   🤖 Bot: @YourBot
-   🔗 Webhook set → https://your-app.onrender.com/tg/…
-   🖥  Admin panel → https://your-app.onrender.com/admin
-   ```
-5. Admin panel kholo → **Settings** → channels, rewards aur limits set karo.
-
-> ℹ️ Render ka free plan 15 minute idle rehne par so jata hai, to us ke baad pehla reply 30–50 second late aata hai. Smooth chalne ke liye **Starter** plan lo, ya UptimeRobot se har 10 minute `/health` ping karwao.
-
-### 5. Local testing
 ```bash
-cp .env.example .env    # values bharo, PUBLIC_URL khaali rakho
+git clone https://github.com/<you>/rfinfo.git
+cd rfinfo
 npm install
-npm run check           # Telegram + D1 + R2 connection test
-npm run dev
+cp .env.example .env      # fill in the values (see SETUP_GUIDE.txt)
+npm run check             # tests Telegram, D1 and R2 connections
+npm start
 ```
-Local mein bot long-polling par chalta hai. Device verification ke liye public HTTPS URL chahiye, isliye local testing mein admin panel → Settings se "Require device verification" off kar do. Ya phir ngrok chalao aur `PUBLIC_URL` set kar do.
+
+When `PUBLIC_URL` is empty, the bot uses **long polling**, which is convenient for local testing. Device verification needs a public HTTPS URL, so either turn off **Require device verification** in the admin settings while testing locally, or expose your machine with a tunnel such as ngrok and set `PUBLIC_URL`.
 
 ---
 
-## 🔐 One-Device-One-Account kaise kaam karta hai
-1. User `/start <referrer_id>` karta hai, to referral **pending** mein save hota hai.
-2. User channels join karta hai, phir **🔐 Verify My Device** (Telegram Mini App) dabata hai.
-3. Page ek hardware fingerprint aur device token bana kar bhejta hai. Server Telegram `initData` ka HMAC check karta hai, isliye koi fake request nahi bhej sakta.
-4. Agar wahi fingerprint ya token kisi aur account par pehle se hai:
-   - `block_duplicate = on` hai to naya account ban, aur referrer ko ₹0.
-   - `block_duplicate = off` hai to user bot use kar sakta hai, lekin referrer ko ₹0.
-   - Har case **Anti-Fraud** page par log hota hai.
-5. Agar device naya hai to referrer ko bonus milta hai (milestone bonus bhi), aur dono ko notification jata hai.
+## 🔧 Environment variables
 
-Ek hi model ke do phone kabhi-kabhi same fingerprint de sakte hain. Aisa ho to admin us user ke page par **Unban + Reset device** kar sakta hai.
+| Variable | Required | Description |
+|---|---|---|
+| `BOT_TOKEN` | ✅ | Bot token from @BotFather |
+| `ADMIN_IDS` | Recommended | Comma-separated Telegram user IDs that receive admin alerts |
+| `ADMIN_USERNAME` | — | Admin panel username (default: `admin`) |
+| `ADMIN_PASSWORD` | ✅ | Admin panel password |
+| `SESSION_SECRET` | Recommended | A long random string used to sign admin sessions |
+| `PUBLIC_URL` | Host-dependent | The public HTTPS URL of your app. Detected automatically on Render, Railway and Koyeb. |
+| `CF_ACCOUNT_ID` | ✅ \* | Cloudflare account ID |
+| `CF_API_TOKEN` | ✅ \* | Cloudflare API token with **D1 Edit** permission |
+| `D1_DATABASE_ID` | ✅ \* | ID of your D1 database |
+| `D1_PROXY_URL` | Optional \* | URL of the optional D1 proxy Worker (for high traffic) |
+| `D1_PROXY_SECRET` | Optional \* | Shared secret for the proxy Worker |
+| `R2_ACCESS_KEY_ID` | Optional | R2 API token access key |
+| `R2_SECRET_ACCESS_KEY` | Optional | R2 API token secret key |
+| `R2_BUCKET` | Optional | R2 bucket name |
+| `R2_PUBLIC_URL` | Optional | Public bucket URL, needed for welcome-banner uploads |
+| `R2_ACCOUNT_ID` | Optional | Defaults to `CF_ACCOUNT_ID` |
+
+\* For the database, set **either** `CF_ACCOUNT_ID` + `CF_API_TOKEN` + `D1_DATABASE_ID` (REST API) **or** `D1_PROXY_URL` + `D1_PROXY_SECRET` (proxy Worker).
+
+Without R2 the bot works normally. Only backups and image uploads are disabled.
+
+---
+
+## ☁️ Hosting
+
+This is a standard long-running Node.js web server, so it runs on **any host that supports Node.js 20+ and gives you a public HTTPS URL**:
+
+| Host | Notes |
+|---|---|
+| **Render** | One-click deploy using `render.yaml`. The URL is detected automatically. |
+| **Railway** | Generate a public domain. The URL is detected automatically. |
+| **Koyeb** | The URL is detected automatically. |
+| **Fly.io / Northflank / Heroku** | Set `PUBLIC_URL` to your app URL. |
+| **VPS** (DigitalOcean, Hetzner, AWS EC2, etc.) | Run with `pm2` behind Nginx or Caddy with HTTPS, and set `PUBLIC_URL`. |
+
+❌ **Not supported:** serverless or edge-only platforms such as Vercel, Netlify Functions and Cloudflare Workers. The bot needs a process that stays running, because it sends broadcasts in the background and runs scheduled backups.
+
+On startup the app creates the database tables, registers the Telegram webhook at `PUBLIC_URL`, and serves the admin panel at `PUBLIC_URL/admin`.
+
+### High traffic: the D1 proxy Worker
+The Cloudflare REST API is limited to about 1,200 requests per 5 minutes. For large bots, deploy the included Worker (`cloudflare-worker/`) and use `D1_PROXY_URL` + `D1_PROXY_SECRET` instead. Step-by-step instructions are in SETUP_GUIDE.txt (Part 9).
+
+---
+
+## 🛡 How one-device-one-account works
+
+1. A user opens `/start <referrer_id>`, and the referral is saved as **pending**.
+2. The user joins the required channels, then taps **🔐 Verify My Device**, which opens a Telegram Mini App.
+3. The Mini App builds a hardware fingerprint and device token. The server verifies the Telegram `initData` signature, so requests cannot be forged.
+4. If the same fingerprint or token already belongs to another account:
+   - with **Auto-ban duplicates** on, the new account is banned and the referrer gets nothing;
+   - with it off, the user may use the bot, but the referrer still gets nothing.
+   - Every attempt is recorded on the **Anti-Fraud** page.
+5. Otherwise the referrer is credited, plus any milestone bonus, and both users are notified.
+
+Two identical phone models can occasionally produce the same fingerprint. If a genuine user is blocked, open their page in the admin panel and click **Unban** and **Reset device**.
 
 ---
 
 ## 📁 Project structure
+
 ```
 src/
-  index.js              Express server, webhook, startup
-  config.js             env config
-  utils.js              ₹ formatting, escaping, UPI validation
-  db/d1.js              D1 client (REST API or proxy worker, with retries)
-  db/repo.js            all queries + atomic money operations + settings
-  storage/r2.js         R2 (S3 API) client
-  bot/handlers.js       all bot commands, menus, flows
-  bot/ui.js             keyboards & shared screens
-  services/*.js         referrals, withdrawals, broadcast, backups, channel check
-  web/verify.js         device-verification Mini App + API
-  admin/*.js            admin panel (auth, layout, routes)
-schema.sql              D1 schema
-cloudflare-worker/      optional D1 proxy worker
+  index.js              Express server, webhook setup, startup
+  config.js             Environment configuration
+  utils.js              ₹ formatting, HTML escaping, UPI validation
+  db/d1.js              D1 client (REST API or proxy Worker, with retries)
+  db/repo.js            All queries, atomic money operations, settings
+  storage/r2.js         R2 client (S3-compatible API)
+  bot/handlers.js       Bot commands, menus and flows
+  bot/ui.js             Keyboards and shared screens
+  services/             Referrals, withdrawals, broadcasts, backups, channel checks
+  web/verify.js         Device-verification Mini App and API
+  admin/                Admin panel (auth, layout, routes)
+schema.sql              Database schema
+cloudflare-worker/      Optional D1 proxy Worker
 render.yaml             Render blueprint
+SETUP_GUIDE.txt         Complete step-by-step hosting guide
 ```
 
-Paisa hamesha **paise** (integer) mein store hota hai, isliye rounding errors nahi aate. Har balance change ek conditional SQL update hai: double-spend nahi ho sakta, balance negative nahi ho sakta, aur double claim nahi ho sakta.
+## 📜 Scripts
+
+| Command | Purpose |
+|---|---|
+| `npm start` | Start the bot |
+| `npm run dev` | Start with auto-restart on file changes |
+| `npm run check` | Test the Telegram, D1 and R2 connections |
+| `npm run migrate` | Create the database tables manually (also runs automatically on start) |

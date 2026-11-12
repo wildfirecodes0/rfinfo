@@ -20,7 +20,13 @@ const cfg = {
   ADMIN_USERNAME: opt('ADMIN_USERNAME', 'admin'),
   ADMIN_PASSWORD: need('ADMIN_PASSWORD'),
   SESSION_SECRET: opt('SESSION_SECRET') || hash('session:' + BOT_TOKEN),
-  PUBLIC_URL: (opt('PUBLIC_URL') || opt('RENDER_EXTERNAL_URL')).replace(/\/+$/, ''),
+  // Auto-detected on Render, Railway and Koyeb; set PUBLIC_URL manually on any other host.
+  PUBLIC_URL: (
+    opt('PUBLIC_URL') ||
+    opt('RENDER_EXTERNAL_URL') ||
+    (opt('RAILWAY_PUBLIC_DOMAIN') && `https://${opt('RAILWAY_PUBLIC_DOMAIN')}`) ||
+    (opt('KOYEB_PUBLIC_DOMAIN') && `https://${opt('KOYEB_PUBLIC_DOMAIN')}`)
+  ).replace(/\/+$/, ''),
   PORT: Number(opt('PORT', '3000')),
   TZ_OFFSET_SEC: 19800, // IST (+05:30) for daily charts
 
