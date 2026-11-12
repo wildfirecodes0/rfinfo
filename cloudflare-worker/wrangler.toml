@@ -1,0 +1,8 @@
+name = "refer-bot-d1-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "refer-bot"
+database_id = "PUT-YOUR-D1-DATABASE-ID-HERE"
